@@ -40,21 +40,43 @@
 
 4. Ограничим доступ по ssh всем пользователям кроме группы admin в выходные
 
-    Добавим строку `account requierd pam_time.so` в файл `/etc/pam.d/sshd`
+Для начала установим PAM
+`sudo apt install libpam-script`.
+Далее создадим файл `/usr/share/libpam-script/pam_script_acct`, с таким кодом:
+```bash
+#!bin/bash
+script="$1"
+shift
 
-    Так мы включим в процесс аутентификации модуль time.
+if groups $PAM_USER | grep admin > /dev/null
+then
+        exit 0
+else
+        if [[ $(date +%u) -lt 6 ]]
+        then
+                exit 0
+        else
+                exit 1
+        fi
+fi
 
-    Теперь добавим правило:
+if [ ! -e "$script" ]
+then
+        exit 0
+fi
+```
 
-    Добавим в `/etc/security/time.conf` строку `sshd;*;!admin;Wk0000-2400`
+Cделаем этот файл исполняемым
 
-    - первый аргумент запрещает соединение по ssh
+`sudo chmod +x /usr/share/libpam-script/pam_script_acct`
 
-    - второй определяет терминалы к которым относится правило
 
-    - третий аргумент диктует к кому применить правило, в данно случае ко всем кроме группы `admin`
+И затем добавляем записи в файл `/etc/pam.d/sshd`
 
-    - четвертый обозначает временной промежуток Wk - выходные, 0000-2400 - часы
+```bash
+#account    required     pam_time.so
+account    required     pam_script.so
+```
 
 5. Установить докер и выдать его под контроль одному пользователю.
 
